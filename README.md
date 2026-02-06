@@ -39,13 +39,17 @@ Reflect on your progress.
 
 ## 🚀 Getting Started
 
-1.  **Initialize**:
-    ```bash
-    just init
-    ```
+### 1. Installation
 
-2.  **Start Chatting**:
-    Open this project in an OpenCode-compatible environment and use the commands above.
+Directly paste the following instruction into **OpenCode**:
+
+```text
+Clone https://github.com/observerw/OpenCode-Jarvis to ~/.opencode-jarvis, then add `alias jarvis='cd ~/.opencode-jarvis && opencode'` to my shell configuration file (e.g., .bashrc or .zshrc).
+```
+
+### 2. Start Chatting
+
+After the setup is complete, simply type `jarvis` in your terminal to start managing your tasks. Jarvis will automatically handle initialization for you.
 
 ## ⚙️ Under the Hood
 
