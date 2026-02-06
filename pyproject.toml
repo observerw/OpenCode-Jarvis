@@ -1,0 +1,11 @@
+[project]
+name = "jarvis"
+version = "0.1.0"
+description = "Personal task planning and management system"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "nanoid>=2.0",
+]
