@@ -3,6 +3,18 @@ description: Today's Task Overview and Intelligent Planning
 agent: jarvis
 ---
 
+## System Context
+
+Current Time: !`date "+%Y-%m-%d %H:%M %A"`
+
+Check `just` installation:
+
+!`which just`
+
+Check `jq` installation:
+
+!`which jq`
+
 ## Today's Tasks
 
 !`just today`

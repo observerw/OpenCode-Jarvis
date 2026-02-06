@@ -7,16 +7,6 @@ agent: jarvis
 
 Current Time: !`date "+%Y-%m-%d %H:%M %A"`
 
-## Data Schema
-
-!`just schema`
-
-## Available Operations
-
-!`just help`
-
-## Installation
-
 Check `just` installation:
 
 !`which just`
@@ -24,6 +14,14 @@ Check `just` installation:
 Check `jq` installation:
 
 !`which jq`
+
+## Data Schema
+
+!`just schema`
+
+## Available Operations
+
+!`just help`
 
 ## Requirements
 

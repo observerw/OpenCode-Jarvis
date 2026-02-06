@@ -3,6 +3,18 @@ description: Periodic Review and Progress Analysis
 agent: jarvis
 ---
 
+## System Context
+
+Current Time: !`date "+%Y-%m-%d %H:%M %A"`
+
+Check `just` installation:
+
+!`which just`
+
+Check `jq` installation:
+
+!`which jq`
+
 ## Recently Completed (Last 7 Days)
 
 !`just recent-done`
