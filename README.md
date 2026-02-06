@@ -18,24 +18,27 @@ It strips away complex UIs, clicking, and dragging. Instead, it offers a pure **
 Jarvis is designed to be used via **Slash Commands** in your agent interface.
 
 ### `/task` - The Do-It-All Command
+
 Handle 90% of your workflow without remembering syntax.
 
-*   **Create**: "Remind me to check the server logs at 3 PM."
-*   **Query**: "What tasks do I have for the 'Website' project?"
-*   **Update**: "Mark the server check as done."
+- **Create**: "Remind me to check the server logs at 3 PM."
+- **Query**: "What tasks do I have for the 'Website' project?"
+- **Update**: "Mark the server check as done."
 
 ### `/today` - Your Daily Briefing
+
 Start your day with clarity. Jarvis analyzes your schedule, overdue items, and priorities.
 
-*   **Input**: `/today`
-*   **Agent Output**:
-    > "Good morning! You have 3 tasks due today. The 'Team Meeting' is at 2 PM. You also have an overdue task from yesterday. Shall I reschedule it?"
+- **Input**: `/today`
+- **Agent Output**:
+  > "Good morning! You have 3 tasks due today. The 'Team Meeting' is at 2 PM. You also have an overdue task from yesterday. Shall I reschedule it?"
 
 ### `/review` - Retrospective
+
 Reflect on your progress.
 
-*   **Input**: `/review What did I finish this week?`
-*   **Agent Output**: Generates a summary of completed work and completion rates.
+- **Input**: `/review What did I finish this week?`
+- **Agent Output**: Generates a summary of completed work and completion rates.
 
 ## 🚀 Getting Started
 
@@ -55,9 +58,9 @@ After the setup is complete, simply type `jarvis` in your terminal to start mana
 
 OpenCode-Jarvis is built on a robust, hackable stack:
 
-*   **Data Layer**: `data/tasks.json` & `data/entities.json` (Human-readable storage).
-*   **Execution Engine**: `justfile` (The API layer that the Agent calls).
-*   **Intelligence**: `.opencode/` (Defines the Agent's personality, commands, and skills).
+- **Data Layer**: `data/tasks.json` & `data/entities.json` (Human-readable storage).
+- **Execution Engine**: `justfile` (The API layer that the Agent calls).
+- **Intelligence**: `.opencode/` (Defines the Agent's personality, commands, and skills).
 
 Because it adheres to the **OpenCode** standard, you can easily customize the agent's behavior or add new skills just by editing Markdown files in `.opencode/`.
 
