@@ -3,6 +3,7 @@
 # Run `just help` for detailed usage
 
 data_dir := "data"
+archive_dir := data_dir / "archives"
 tasks := data_dir / "tasks.json"
 entities := data_dir / "entities.json"
 
@@ -284,39 +285,59 @@ delete-entity id:
 
 # === UPDATE - Common ===
 
-# Mark task as done (sets status + completed_at, recursively for children)
+# Mark task as done (sets status + completed_at, archives to date-based file)
 complete-task id:
     #!/usr/bin/env bash
     now=$(date -u +%Y-%m-%dT%H:%M:%S)
+    # 1. Update status in tasks.json
     jq --arg id "{{id}}" --arg now "$now" \
       'map(if .id == $id or .parent_id == $id then .status = "done" | .completed_at = $now else . end)' \
-      {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
+      {{tasks}} > {{tasks}}.tmp || exit 1
+
+    # 2. Extract tasks to archive (all tasks with status "done")
+    done_tasks=$(jq -c '[.[] | select(.status == "done")]' {{tasks}}.tmp)
+
+    if [ "$done_tasks" != "[]" ]; then
+        # 3. Archive each task by its completion date
+        # Use jq to output lines of "YYYY-MM-DD <json_object>"
+        echo "$done_tasks" | jq -r '.[] | "\(.completed_at[:10]) \(. | @json)"' | while read -r date task_json; do
+            archive_file="{{archive_dir}}/$date.json"
+            [ -f "$archive_file" ] || echo '[]' > "$archive_file"
+            jq --argjson t "$task_json" '. += [$t] | unique_by(.id)' "$archive_file" > "$archive_file.tmp" && mv "$archive_file.tmp" "$archive_file"
+        done
+
+        # 4. Remove archived tasks from main tasks.json
+        jq '[.[] | select(.status != "done")]' {{tasks}}.tmp > {{tasks}}.final && mv {{tasks}}.final {{tasks}}
+        rm {{tasks}}.tmp
+    else
+        mv {{tasks}}.tmp {{tasks}}
+    fi
 
 # Complete current recurring task and create next instance
 cycle-recurring-task id:
     #!/usr/bin/env bash
     task_json=$(jq --arg id "{{id}}" '.[] | select(.id == $id)' {{tasks}})
     if [ -z "$task_json" ]; then echo "Task not found"; exit 1; fi
-    
+
     # 1. Complete current task
     just complete-task "{{id}}"
-    
+
     # 2. Check for recurrence
     recurrence=$(echo "$task_json" | jq -r '.recurrence // empty')
     if [ -z "$recurrence" ]; then
         echo "Task completed (no recurrence)."
         exit 0
     fi
-    
+
     # 3. Calculate next due date
     due_at=$(echo "$task_json" | jq -r '.due_at // empty')
     if [ -z "$due_at" ]; then
         due_at=$(date -u +%Y-%m-%dT%H:%M:%S)
     fi
-    
+
     num=${recurrence%[dm]}
     unit=${recurrence#$num}
-    
+
     if [[ "$(uname)" == "Darwin" ]]; then
         # Try full ISO format first, fallback to YYYY-MM-DD
         if [[ "$unit" == "d" ]]; then
@@ -331,17 +352,17 @@ cycle-recurring-task id:
             next_due=$(date -d "$due_at + $num months" "+%Y-%m-%dT%H:%M:%S")
         fi
     fi
-    
+
     # 4. Create new task instance
     new_id=$(just _gen-task-id)
     now=$(date -u +%Y-%m-%dT%H:%M:%S)
-    
+
     title=$(echo "$task_json" | jq -r '.title')
     content=$(echo "$task_json" | jq '.content')
     entities=$(echo "$task_json" | jq '.entities // []')
     note=$(echo "$task_json" | jq '.note')
     parent_id=$(echo "$task_json" | jq '.parent_id')
-    
+
     jq --arg id "$new_id" \
        --arg title "$title" \
        --argjson content "$content" \
@@ -353,7 +374,7 @@ cycle-recurring-task id:
        --argjson pid "$parent_id" \
        '. += [{id: $id, title: $title, content: $content, status: "pending", created_at: $now, due_at: $due, recurrence: $rec, entities: $ent, note: $note, parent_id: $pid}]' \
        {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
-    
+
     echo "Created next instance: $new_id with due_at $next_due"
 
 # Cancel task
@@ -396,6 +417,7 @@ set-note id note:
 init:
     #!/usr/bin/env bash
     mkdir -p {{data_dir}}
+    mkdir -p {{archive_dir}}
     [ -f {{tasks}} ] || echo '[]' > {{tasks}}
     [ -f {{entities}} ] || echo '[]' > {{entities}}
     echo "Initialized {{data_dir}}/"
