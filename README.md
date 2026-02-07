@@ -25,7 +25,6 @@ bun i -g opencode-ai
 Copy paste the following prompt to one of your OpenCode agent:
 
 ````text
-
 Please help me intall Jarvis-Task. First, Clone the repository:
 
 ```bash
@@ -52,23 +51,49 @@ Jarvis is designed to understand your intent through natural conversation and sp
 
 Handle 90% of your workflow with simple language.
 
-- **Create**: "Remind me to check the server logs at 3 PM."
-- **Query**: "What tasks do I have for the 'Website' project?"
-- **Update**: "Mark the server check as done."
+- **Input**: "Meeting with Manager Li at 3 PM tomorrow"
+- **Output**:
+  > Task created: **Meeting with Manager Li**  
+  > 📅 **Due**: 2026-02-08 15:00  
+  > 👤 **Entity**: Manager Li (person)  
+  > _ID: task_1738944000_abc123_
 
 ### `/today` - Daily Briefing
 
 Start your day with clarity. Jarvis analyzes your schedule, overdue items, and priorities to give you a concise briefing.
 
 - **Input**: `/today`
-- **Output**: _"Good morning! You have 3 tasks due today. The 'Team Meeting' is at 2 PM. You also have an overdue task from yesterday. Shall I reschedule it?"_
+- **Output**:
+  > ### 📅 Today's Agenda (2026-02-07)
+  >
+  > | Time        | Task              | Status         | Note                       |
+  > | :---------- | :---------------- | :------------- | :------------------------- |
+  > | 09:00       | Morning Scrum     | ✅ Done        |                            |
+  > | 14:00       | Team Meeting      | ⏳ Pending     | Discuss project milestones |
+  > | **Overdue** | **Finish Report** | 🚨 **Pending** | Was due yesterday!         |
+  >
+  > **Suggestions**: You have a clear afternoon. Perfect time to tackle the overdue report!
 
 ### `/review` - Progress Analytics
 
 Reflect on your productivity.
 
 - **Input**: `/review What did I finish this week?`
-- **Output**: Generates a summary of completed work, completion rates, and focus areas.
+- **Output**:
+  > ### 📊 Weekly Review (Feb 1 - Feb 7)
+  >
+  > **Completed Tasks: 12** | **Completion Rate: 85%**
+  >
+  > | Category    | Tasks Completed |
+  > | :---------- | :-------------- |
+  > | Project A   | 5               |
+  > | Maintenance | 4               |
+  > | Meetings    | 3               |
+  >
+  > **Actionable Insights**:
+  >
+  > - You are most productive on Tuesday mornings.
+  > - Consider breaking down 'Project B' tasks into smaller chunks.
 
 ## ⚙️ Design & Architecture
 
