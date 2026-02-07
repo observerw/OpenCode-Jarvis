@@ -12,9 +12,17 @@ It eliminates the friction of complex UIs, clicking, and dragging by providing a
 
 ## 🚀 Getting Started
 
+### 0. Prerequisites
+
+This project is powered by the great [OpenCode](https://opencode.ai/) agent (for now). Make sure you have OpenCode installed and set up on your machine:
+
+```bash
+bun i -g opencode-ai
+```
+
 ### 1. Installation
 
-Copy paste the following prompt to your [OpenCode](https://opencode.com/) agent:
+Copy paste the following prompt to one of your OpenCode agent:
 
 ````text
 
