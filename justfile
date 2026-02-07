@@ -3,6 +3,7 @@
 # Run `just help` for detailed usage
 
 data_dir := "data"
+archive_dir := data_dir / "archives"
 tasks := data_dir / "tasks.json"
 entities := data_dir / "entities.json"
 
@@ -284,13 +285,33 @@ delete-entity id:
 
 # === UPDATE - Common ===
 
-# Mark task as done (sets status + completed_at, recursively for children)
+# Mark task as done (sets status + completed_at, archives to date-based file)
 complete-task id:
     #!/usr/bin/env bash
     now=$(date -u +%Y-%m-%dT%H:%M:%S)
+    # 1. Update status in tasks.json
     jq --arg id "{{id}}" --arg now "$now" \
       'map(if .id == $id or .parent_id == $id then .status = "done" | .completed_at = $now else . end)' \
-      {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
+      {{tasks}} > {{tasks}}.tmp || exit 1
+    
+    # 2. Extract tasks to archive (all tasks with status "done")
+    done_tasks=$(jq -c '[.[] | select(.status == "done")]' {{tasks}}.tmp)
+    
+    if [ "$done_tasks" != "[]" ]; then
+        # 3. Archive each task by its completion date
+        # Use jq to output lines of "YYYY-MM-DD <json_object>"
+        echo "$done_tasks" | jq -r '.[] | "\(.completed_at[:10]) \(. | @json)"' | while read -r date task_json; do
+            archive_file="{{archive_dir}}/$date.json"
+            [ -f "$archive_file" ] || echo '[]' > "$archive_file"
+            jq --argjson t "$task_json" '. += [$t] | unique_by(.id)' "$archive_file" > "$archive_file.tmp" && mv "$archive_file.tmp" "$archive_file"
+        done
+        
+        # 4. Remove archived tasks from main tasks.json
+        jq '[.[] | select(.status != "done")]' {{tasks}}.tmp > {{tasks}}.final && mv {{tasks}}.final {{tasks}}
+        rm {{tasks}}.tmp
+    else
+        mv {{tasks}}.tmp {{tasks}}
+    fi
 
 # Complete current recurring task and create next instance
 cycle-recurring-task id:
@@ -396,6 +417,7 @@ set-note id note:
 init:
     #!/usr/bin/env bash
     mkdir -p {{data_dir}}
+    mkdir -p {{archive_dir}}
     [ -f {{tasks}} ] || echo '[]' > {{tasks}}
     [ -f {{entities}} ] || echo '[]' > {{entities}}
     echo "Initialized {{data_dir}}/"
