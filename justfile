@@ -8,12 +8,13 @@ entities := data_dir / "entities.json"
 
 # Show JSON schema for Task and Entity
 schema:
-    @echo "Task: {id, title, content?, status, created_at, due_at?, completed_at?, parent_id?, depends_on[]?, entities[]?, note?}"
+    @echo "Task: {id, title, content?, status, created_at, due_at?, completed_at?, parent_id?, depends_on[]?, entities[]?, recurrence?, note?}"
     @echo "Entity: {id, type, name, note?}"
     @echo ""
     @echo "status: pending | done | cancelled"
     @echo "type: person | place | project | tag"
     @echo "dates: ISO format (2026-02-07T14:00)"
+    @echo "recurrence: <num>d (days) | <num>m (months)"
 
 # Show detailed help for all commands
 help:
@@ -51,7 +52,7 @@ help:
     @echo "  just list-projects                       List all projects"
     @echo ""
     @echo "UPDATE - Basic:"
-    @echo "  just add-task <title> [due_at]           Create task"
+    @echo "  just add-task <title> [due] [rec]        Create task"
     @echo "  just add-entity <type> <name>            Create entity"
     @echo "  just set-task-field <id> <field> <val>   Update task field"
     @echo "  just clear-task-field <id> <field>       Clear task field (set null)"
@@ -63,6 +64,7 @@ help:
     @echo ""
     @echo "UPDATE - Common:"
     @echo "  just complete-task <id>                  Mark task done"
+    @echo "  just cycle-recurring-task <id>           Complete recurring and create next"
     @echo "  just cancel-task <id>                    Cancel task"
     @echo "  just reopen-task <id>                    Reopen task"
     @echo "  just postpone-task <id> <new_due>        Change due date"
@@ -218,16 +220,16 @@ _gen-entity-id:
     @echo "ent_$(date +%s)_$(head -c 4 /dev/urandom | xxd -p)"
 
 # Create task (returns id)
-add-task title due_at="null":
+add-task title due_at="null" recurrence="null":
     #!/usr/bin/env bash
     id=$(just _gen-task-id)
     now=$(date -u +%Y-%m-%dT%H:%M:%S)
     due_val='{{due_at}}'
-    if [[ "$due_val" != "null" ]]; then
-      due_val="\"$due_val\""
-    fi
-    jq --arg id "$id" --arg title "{{title}}" --arg now "$now" --argjson due "$due_val" \
-      '. += [{id: $id, title: $title, status: "pending", created_at: $now, due_at: $due}]' \
+    rec_val='{{recurrence}}'
+    if [[ "$due_val" != "null" ]]; then due_val="\"$due_val\""; fi
+    if [[ "$rec_val" != "null" ]]; then rec_val="\"$rec_val\""; fi
+    jq --arg id "$id" --arg title "{{title}}" --arg now "$now" --argjson due "$due_val" --argjson rec "$rec_val" \
+      '. += [{id: $id, title: $title, status: "pending", created_at: $now, due_at: $due, recurrence: $rec}]' \
       {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
     echo "$id"
 
@@ -289,6 +291,70 @@ complete-task id:
     jq --arg id "{{id}}" --arg now "$now" \
       'map(if .id == $id then .status = "done" | .completed_at = $now else . end)' \
       {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
+
+# Complete current recurring task and create next instance
+cycle-recurring-task id:
+    #!/usr/bin/env bash
+    task_json=$(jq --arg id "{{id}}" '.[] | select(.id == $id)' {{tasks}})
+    if [ -z "$task_json" ]; then echo "Task not found"; exit 1; fi
+    
+    # 1. Complete current task
+    just complete-task "{{id}}"
+    
+    # 2. Check for recurrence
+    recurrence=$(echo "$task_json" | jq -r '.recurrence // empty')
+    if [ -z "$recurrence" ]; then
+        echo "Task completed (no recurrence)."
+        exit 0
+    fi
+    
+    # 3. Calculate next due date
+    due_at=$(echo "$task_json" | jq -r '.due_at // empty')
+    if [ -z "$due_at" ]; then
+        due_at=$(date -u +%Y-%m-%dT%H:%M:%S)
+    fi
+    
+    num=${recurrence%[dm]}
+    unit=${recurrence#$num}
+    
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # Try full ISO format first, fallback to YYYY-MM-DD
+        if [[ "$unit" == "d" ]]; then
+            next_due=$(date -v+"$num"d -jf "%Y-%m-%dT%H:%M:%S" "$due_at" "+%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -v+"$num"d -jf "%Y-%m-%d" "$due_at" "+%Y-%m-%dT%H:%M:%S")
+        elif [[ "$unit" == "m" ]]; then
+            next_due=$(date -v+"$num"m -jf "%Y-%m-%dT%H:%M:%S" "$due_at" "+%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -v+"$num"m -jf "%Y-%m-%d" "$due_at" "+%Y-%m-%dT%H:%M:%S")
+        fi
+    else
+        if [[ "$unit" == "d" ]]; then
+            next_due=$(date -d "$due_at + $num days" "+%Y-%m-%dT%H:%M:%S")
+        elif [[ "$unit" == "m" ]]; then
+            next_due=$(date -d "$due_at + $num months" "+%Y-%m-%dT%H:%M:%S")
+        fi
+    fi
+    
+    # 4. Create new task instance
+    new_id=$(just _gen-task-id)
+    now=$(date -u +%Y-%m-%dT%H:%M:%S)
+    
+    title=$(echo "$task_json" | jq -r '.title')
+    content=$(echo "$task_json" | jq '.content')
+    entities=$(echo "$task_json" | jq '.entities // []')
+    note=$(echo "$task_json" | jq '.note')
+    parent_id=$(echo "$task_json" | jq '.parent_id')
+    
+    jq --arg id "$new_id" \
+       --arg title "$title" \
+       --argjson content "$content" \
+       --arg now "$now" \
+       --arg due "$next_due" \
+       --arg rec "$recurrence" \
+       --argjson ent "$entities" \
+       --argjson note "$note" \
+       --argjson pid "$parent_id" \
+       '. += [{id: $id, title: $title, content: $content, status: "pending", created_at: $now, due_at: $due, recurrence: $rec, entities: $ent, note: $note, parent_id: $pid}]' \
+       {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
+    
+    echo "Created next instance: $new_id with due_at $next_due"
 
 # Cancel task
 cancel-task id:
