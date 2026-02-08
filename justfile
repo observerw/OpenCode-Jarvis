@@ -82,33 +82,33 @@ help:
 
 # Filter by status (pending/done/cancelled)
 filter-status status:
-    jq --arg s "{{status}}" '[.[] | select(.status == $s)]' {{tasks}}
+    jq --arg s "{{status}}" 'map(select(.status == $s))' {{tasks}}
 
 # Filter by due_at range [start, end)
 filter-due start end:
     jq --arg s "{{start}}" --arg e "{{end}}" \
-      '[.[] | select(.due_at != null and .due_at >= $s and .due_at < $e)]' {{tasks}}
+      'map(select(.due_at and .due_at >= $s and .due_at < $e))' {{tasks}}
 
 # Filter by completed_at range [start, end)
 filter-completed start end:
     jq --arg s "{{start}}" --arg e "{{end}}" \
-      '[.[] | select(.completed_at != null and .completed_at >= $s and .completed_at < $e)]' {{tasks}}
+      'map(select(.completed_at and .completed_at >= $s and .completed_at < $e))' {{tasks}}
 
 # Filter tasks by entity id
 filter-entity entity_id:
-    jq --arg e "{{entity_id}}" '[.[] | select(.entities != null and (.entities | index($e)))]' {{tasks}}
+    jq --arg e "{{entity_id}}" 'map(select((.entities // []) | index($e)))' {{tasks}}
 
 # Filter subtasks by parent id
 filter-children parent_id:
-    jq --arg p "{{parent_id}}" '[.[] | select(.parent_id == $p)]' {{tasks}}
+    jq --arg p "{{parent_id}}" 'map(select(.parent_id == $p))' {{tasks}}
 
 # Find entity by name (case-insensitive fuzzy match)
 find-entity name:
-    jq --arg n "{{name}}" '[.[] | select(.name | test($n; "i"))]' {{entities}}
+    jq --arg n "{{name}}" 'map(select(.name | test($n; "i")))' {{entities}}
 
 # Find entity by type (person/place/project/tag)
 find-entity-type type:
-    jq --arg t "{{type}}" '[.[] | select(.type == $t)]' {{entities}}
+    jq --arg t "{{type}}" 'map(select(.type == $t))' {{entities}}
 
 # Get single task by id
 get-task id:
@@ -123,7 +123,7 @@ get-entity id:
 # Today's tasks sorted by due_at
 today:
     jq --arg s "$(date +%Y-%m-%d)" --arg e "$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d '+1 day' +%Y-%m-%d)" \
-      '[.[] | select(.due_at != null and .due_at >= $s and .due_at < $e)] | sort_by(.due_at)' {{tasks}}
+      'map(select(.due_at and .due_at >= $s and .due_at < $e)) | sort_by(.due_at)' {{tasks}}
 
 # All pending tasks
 pending:
@@ -132,7 +132,7 @@ pending:
 # Overdue tasks (pending with due_at in past)
 overdue:
     jq --arg now "$(date +%Y-%m-%dT%H:%M)" \
-      '[.[] | select(.status == "pending" and .due_at != null and .due_at < $now)]' {{tasks}}
+      'map(select(.status == "pending" and .due_at and .due_at < $now))' {{tasks}}
 
 # This week's tasks
 this-week:
@@ -145,7 +145,7 @@ this-week:
       end=$(date -d "next monday" +%Y-%m-%d)
     fi
     jq --arg s "$start" --arg e "$end" \
-      '[.[] | select(.due_at != null and .due_at >= $s and .due_at < $e)] | sort_by(.due_at)' {{tasks}}
+      'map(select(.due_at and .due_at >= $s and .due_at < $e)) | sort_by(.due_at)' {{tasks}}
 
 # Upcoming tasks (next 30 days, excluding today)
 upcoming:
@@ -158,14 +158,14 @@ upcoming:
       end=$(date -d '+31 days' +%Y-%m-%d)
     fi
     jq --arg s "$start" --arg e "$end" \
-      '[.[] | select(.status == "pending" and .due_at != null and .due_at >= $s and .due_at < $e)] | sort_by(.due_at)' {{tasks}}
+      'map(select(.status == "pending" and .due_at and .due_at >= $s and .due_at < $e)) | sort_by(.due_at)' {{tasks}}
 
 # Milestones (pending tasks linked to projects, sorted by due_at)
 milestones:
     #!/usr/bin/env bash
-    project_ids=$(jq -r '[.[] | select(.type == "project")] | .[].id' {{entities}})
-    jq --argjson pids "$(echo "$project_ids" | jq -R -s 'split("\n") | map(select(length > 0))')" \
-      '[.[] | select(.status == "pending" and .entities != null and ([.entities[] | . as $e | $pids | index($e)] | any))] | sort_by(.due_at)' {{tasks}}
+    project_ids=$(jq -r 'map(select(.type == "project")) | .[].id' {{entities}})
+    jq --argjson pids "$(echo "$project_ids" | jq -R -s 'split("\n") | map(select(. != ""))')" \
+      'map(select(.status == "pending" and any(.entities[]?; IN($pids[])))) | sort_by(.due_at)' {{tasks}}
 
 # Completed in last 7 days
 recent-done:
@@ -176,13 +176,14 @@ recent-done:
       start=$(date -d '-7 days' +%Y-%m-%d)
     fi
     jq --arg s "$start" \
-      '[.[] | select(.status == "done" and .completed_at != null and .completed_at >= $s)]' {{tasks}}
+      'map(select(.status == "done" and .completed_at >= $s))' {{tasks}}
 
 # === QUERY - Stats ===
 
 # Count tasks by day in range
 stats-by-day start end:
-    jq --arg s "{{start}}" --arg e "{{end}}" '[.[] | select(.due_at != null and .due_at >= $s and .due_at < $e)] | group_by(.due_at[:10]) | map({date: .[0].due_at[:10], count: length}) | sort_by(.date)' {{tasks}}
+    jq --arg s "{{start}}" --arg e "{{end}}" \
+      'map(select(.due_at and .due_at >= $s and .due_at < $e)) | group_by(.due_at[:10]) | map({date: .[0].due_at[:10], count: length}) | sort_by(.date)' {{tasks}}
 
 # Count tasks by status
 stats-status:
@@ -190,11 +191,11 @@ stats-status:
 
 # Project progress (by entity id)
 stats-project entity_id:
-    jq --arg p "{{entity_id}}" '[.[] | select(.entities != null and (.entities | index($p)))] | {total: length, done: ([.[] | select(.status == "done")] | length), pending: ([.[] | select(.status == "pending")] | length), cancelled: ([.[] | select(.status == "cancelled")] | length)}' {{tasks}}
+    jq --arg p "{{entity_id}}" 'map(select((.entities // []) | index($p))) as $t | {total: ($t | length), done: ([$t[] | select(.status == "done")] | length), pending: ([$t[] | select(.status == "pending")] | length), cancelled: ([$t[] | select(.status == "cancelled")] | length)}' {{tasks}}
 
 # Subtasks progress (by parent id)
 stats-children parent_id:
-    jq --arg p "{{parent_id}}" '[.[] | select(.parent_id == $p)] | {total: length, done: ([.[] | select(.status == "done")] | length), pending: ([.[] | select(.status == "pending")] | length)}' {{tasks}}
+    jq --arg p "{{parent_id}}" 'map(select(.parent_id == $p)) as $t | {total: ($t | length), done: ([$t[] | select(.status == "done")] | length), pending: ([$t[] | select(.status == "pending")] | length)}' {{tasks}}
 
 # === QUERY - List ===
 
@@ -270,17 +271,17 @@ append-task-field id field value:
 # Remove value from task array field
 remove-from-task-field id field value:
     jq --arg id "{{id}}" --arg field "{{field}}" --arg value "{{value}}" \
-      'map(if .id == $id then .[$field] = ([.[$field][] | select(. != $value)]) else . end)' \
+      'map(if .id == $id then .[$field] = ([(.[$field] // [])[] | select(. != $value)]) else . end)' \
       {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
 
 # Delete task by id
 delete-task id:
-    jq --arg id "{{id}}" '[.[] | select(.id != $id)]' \
+    jq --arg id "{{id}}" 'map(select(.id != $id))' \
       {{tasks}} > {{tasks}}.tmp && mv {{tasks}}.tmp {{tasks}}
 
 # Delete entity by id
 delete-entity id:
-    jq --arg id "{{id}}" '[.[] | select(.id != $id)]' \
+    jq --arg id "{{id}}" 'map(select(.id != $id))' \
       {{entities}} > {{entities}}.tmp && mv {{entities}}.tmp {{entities}}
 
 # === UPDATE - Common ===
