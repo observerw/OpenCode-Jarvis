@@ -1,0 +1,38 @@
+@import "fumadocs-ui/style.css";
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+.wiki-index-page ul {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.wiki-index-page a {
+  display: block;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--fd-border);
+  border-radius: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 600;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.wiki-index-page a:hover {
+  border-color: var(--fd-primary);
+  background: var(--fd-card);
+}
+
+.wiki-article-page h1:first-child {
+  margin-top: 0;
+}
